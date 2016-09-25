@@ -22,7 +22,7 @@ The installation is pretty simple and it's best done via CLI:
 - Use it: `sudo upgrader cycle`
 
 ## Warning!
-This script interacts with system maintenance tools, such as apt or zypper, so you must execute the script with as root (sudo should be enough and secure).
+This script interacts with system maintenance tools, such as apt or zypper, so you must execute the script with as root (sudo should be enough and secure). In most cases, the updates executed by Upgrader works without any problems.
 
 ## License
 This project is available under MIT license.
