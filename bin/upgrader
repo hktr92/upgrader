@@ -1,0 +1,201 @@
+#!/bin/bash
+
+######
+## Upgrader script
+## written in bash
+####
+## Author: hktr92 <Petru Szemereczki>
+## Year: 2016
+## Website: https://hktr92.github.io/
+####
+## This script is written in order to help using package management tools like
+## apt to be ran into a cron_job environment. It also simplifies the system
+## maintenance and command usage.
+####
+## This script is licensed under MIT License
+## for details, please read the LICENSE.md file found in the project root or
+## on the Internet: http://choosealicense.com/licenses/mit/
+######
+
+######
+## Project-wide configuration (this one is hard-coded, sorry :( )
+####
+## upgrader project directory
+declare -r UPGRADER_DIR=$(dirname $PWD)
+## upgrader configuration directory
+declare -r UPGRADER_ETC="/etc/upgrader"
+####
+## executable for upgrader script
+declare -r UPGRADER_EXECUTABLE=$(basename $0)
+## the upgrader program that is used by this script upgrader script version
+declare -r UPGRADER_VERSION="1.0"
+## upgrader script channel (stable|dev|testing)
+declare -r UPGRADER_CHANNEL="release"
+####
+## reset code
+declare -r COLOR_RESET="0"
+## red text color
+declare -r COLOR_RED="31"
+## yellow text color
+declare -r COLOR_YELLOW="33"
+## green text color
+declare -r COLOR_GREEN="32"
+## cyan text color
+declare -r COLOR_CYAN="36"
+####
+## error message style
+declare -r STYLE_ERROR="\e[${COLOR_RED}m"
+## comment message style
+declare -r STYLE_COMMENT="\e[${COLOR_YELLOW}m"
+## success message style
+declare -r STYLE_SUCCESS="\e[${COLOR_GREEN}m"
+## notice message style
+declare -r STYLE_NOTICE="\e[${COLOR_CYAN}m"
+## default message style
+declare -r STYLE_DEFAULT="\e[${COLOR_RESET}m"
+######
+## script-wide error codes
+## i thought it will be best to define errors by error classes.
+##  error class 0 -> numbers between 5..9 are temporarily used
+## 	error class 1 -> numbers between 10..19 are reserved (currently unused)
+##  error class 2 -> numbers between 20..29 are configuration file-related
+####
+## error code 5 is for permission denied by system
+declare -r ERROR_PERMISSION_DENIED=5
+## error code 21 is for configuration not found
+declare -r ERROR_CONFIG_NOT_FOUND=21
+## error code 22 is for configuration unreadable
+declare -r ERROR_CONFIG_NOT_READABLE=22
+######
+
+######
+# upgrader code
+###
+
+## helper code for helping out with stylized output
+function writeln
+{
+	local output=$1
+
+	echo -e "${output}"
+}
+
+## script function for displaying stylized script channel
+function _version
+{
+	_style="${STYLE_DEFAULT}"
+	case ${UPGRADER_CHANNEL} in
+		stable|release) 	_style="${STYLE_SUCCESS}";;
+		dev) 							_style="${STYLE_ERROR}";;
+		testing|rc*) 			_style="${STYLE_COMMENT}";;
+		*) 								_style="${STYLE_DEFAULT}";;
+	esac
+
+	writeln "\tversion ${STYLE_NOTICE}${UPGRADER_VERSION}${STYLE_DEFAULT}-${_style}${UPGRADER_CHANNEL}${STYLE_DEFAULT}"
+}
+
+## function for loading the configuration file from $UPGRADER_ETC
+function _load_configuration
+{
+	if [[ ! -d ${UPGRADER_ETC} ]]; then
+		writeln "${STYLE_ERROR}Unable to find the ${STYLE_COMMENT}${UPGRADER_ETC}${STYLE_ERROR} directory."
+		writeln "Please follow the installation instruction or create it manually.${STYLE_DEFAULT}"
+		exit ${ERROR_PERMISSION_DENIED}
+	fi
+
+	if [[ ! -e ${UPGRADER_ETC}/upgrader.conf ]]; then
+		writeln "${STYLE_ERROR}Unable to get the ${STYLE_COMMENT}upgrader.conf${STYLE_ERROR} file."
+		writeln "Please follow the installation instruction or copy an existent configuration from ${STYLE_COMMENT}${UPGRADER_DIR}/etc${STYLE_ERROR}."
+		writeln "If you can't find the ${STYLE_COMMENT}upgrader.conf${STYLE_ERROR} for your distribution, you can copy the template and edit as you like.${STYLE_DEFAULT}"
+		exit ${ERROR_CONFIG_NOT_FOUND}
+	fi
+
+	if [[ ! -r ${UPGRADER_ETC}/upgrader.conf ]]; then
+		writeln "${STYLE_ERROR}Unable to read the ${STYLE_COMMENT}${UPGRADER_ETC}/upgrader.conf${STYLE_ERROR} file because it is unreadable."
+		writeln "Please execute ${STYLE_COMMENT}chmod +r ${UPGRADER_ETC}/upgrader.conf${STYLE_ERROR} in order to bypass this error.${STYLE_DEFAULT}"
+		exit ${ERROR_CONFIG_NOT_READABLE}
+	fi
+
+	source ${UPGRADER_ETC}/upgrader.conf
+}
+
+## the main execution body of this script
+function execute
+{
+	writeln "${STYLE_NOTICE}Executing system maintenance cycles, please wait...${STYLE_DEFAULT}"
+
+	for cycle in ${MAINTAINER_CYCLES[@]}; do
+		## This is a crude command builder. This is where the fun begins!
+		local cmd=("${MAINTAINER_PROGRAM}")
+
+		## This is where the magic happens.
+		## The cycle's name is got here...
+		local opt=$(echo "${cycle}" | cut -d':' -f1)
+		## ...and here is taken if it requires confirmation...
+		local aut=$(echo "${cycle}" | cut -d':' -f2)
+
+		## ... so that the magic parameter is passed and added to the builder! :D
+		if [[ "$aut" == "y" ]]; then
+			cmd+=("${MAINTAINER_AUTO}")
+		fi
+
+		## The option is added to the builder
+		cmd+=("${opt}")
+
+		## executing the command from builder...
+		writeln "${STYLE_COMMENT}Executing cycle: ${cycle}${STYLE_DEFAULT}"
+		eval ${cmd[@]}
+		writeln "${STYLE_COMMENT}Cycle execution completed.${STYLE_DEFAULT}"
+
+		## here we reset the command builder and those two magic variables
+		unset cmd
+		unset opt
+		unset aut
+	done
+
+	writeln "${STYLE_SUCCESS}System maintenance cycles executed!${STYLE_DEFAULT}"
+}
+
+## usage of this script
+function info
+{
+	writeln "${STYLE_SUCCESS}System Upgrader script${STYLE_DEFAULT}"
+	_version
+	writeln "\tauthor: hktr92"
+	writeln ""
+	writeln "Usage:"
+	writeln "\t${STYLE_SUCCESS}${UPGRADER_EXECUTABLE} ${STYLE_COMMENT}[option]${STYLE_DEFAULT}"
+	writeln ""
+	writeln "Options:"
+	writeln "\t${STYLE_COMMENT}cycle${STYLE_DEFAULT}\t\tExecutes all provided cycles"
+	writeln "\t${STYLE_COMMENT}help${STYLE_DEFAULT}\t\tShows this message"
+	writeln ""
+	writeln "${STYLE_NOTICE}Licensed under MIT License.${STYLE_DEFAULT}"
+	writeln ""
+}
+
+## checking for root privileges
+function _check
+{
+	if [ "$(id -u)" -ne "0" ]; then
+		writeln "${STYLE_ERROR}Executing the upgrader script requires root privileges.${STYLE_DEFAULT}"
+		exit ${ERROR_PERMISSION_DENIED}
+	fi
+}
+
+function main
+{
+	## executing the program
+	local option=$1
+
+	case $option in
+		cycle)		_check
+							_load_configuration
+							execute
+							;;
+		help|*)		info;;
+	esac
+}
+
+main $@
+exit $?

@@ -1,0 +1,150 @@
+#!/bin/bash
+
+######
+## Old upgrader script
+####
+## this script is obsolete and it's here to be compared with the current project.
+## it was written completely in nano cli editor
+####
+## Author: hktr92 <Petru Szemereczki>
+## Year: 2016
+## Website: https://hktr92.github.io/
+####
+## This script is licensed under MIT License
+## for details, please read the LICENSE.md file found in the project root or
+## on the Internet: http://choosealicense.com/licenses/mit/
+######
+
+######
+## upgrader configuration
+####
+## program used for system maintenance
+declare -r MAINTAINER_PROGRAM="apt"
+## the cycles that will be executed by the upgrader
+declare -r MAINTAINER_CYCLES=("update" "upgrade" "full-upgrade" "autoremove" "autoclean")
+## the "yes" parameter used by the upgrader program
+declare -r MAINTAINER_AUTO="-y"
+####
+## the distribution where the upgrader script is used
+declare -r UPGRADER_DISTRO="Ubuntu"
+## executable for upgrader script
+declare -r UPGRADER_EXECUTABLE=$(basename $0)
+## the upgrader program that is used by this script upgrader script version
+declare -r UPGRADER_VERSION="0.1"
+## upgrader script channel (stable|dev|testing)
+declare -r UPGRADER_CHANNEL="dev"
+####
+## reset code
+declare -r COLOR_RESET="0"
+## red text color
+declare -r COLOR_RED="31"
+## yellow text color
+declare -r COLOR_YELLOW="33"
+## green text color
+declare -r COLOR_GREEN="32"
+## cyan text color
+declare -r COLOR_CYAN="36"
+####
+## error message style
+declare -r STYLE_ERROR="\e[${COLOR_RED}m"
+## comment message style
+declare -r STYLE_COMMENT="\e[${COLOR_YELLOW}m"
+## success message style
+declare -r STYLE_SUCCESS="\e[${COLOR_GREEN}m"
+## notice message style
+declare -r STYLE_NOTICE="\e[${COLOR_CYAN}m"
+## default message style
+declare -r STYLE_DEFAULT="\e[${COLOR_RESET}m"
+######
+
+######
+# upgrader code
+###
+
+## helper code
+function writeln
+{
+	local output=$1
+
+	echo -e "${output}"
+}
+
+function _version
+{
+	_style="${STYLE_DEFAULT}"
+	case ${UPGRADER_CHANNEL} in
+		stable|release) _style="${STYLE_SUCCESS}";;
+		dev) _style="${STYLE_ERROR}";;
+		testing|rc*) _style="${STYLE_COMMENT}";;
+		*) _style="${STYLE_DEFAULT}";;
+	esac
+
+	writeln "\tversion ${STYLE_NOTICE}${UPGRADER_VERSION}${STYLE_DEFAULT}-${_style}${UPGRADER_CHANNEL}${STYLE_DEFAULT}"
+}
+
+## the main execution body of this script
+function execute
+{
+	writeln "Executing system maintenance cycles, please wait..." ${COLOR_NOTICE}
+
+	for cycle in ${MAINTAINER_CYCLES[@]}; do
+		command=("${MAINTAINER_PROGRAM}")
+		command+=("${cycle}")
+
+		## TODO: make something here to check if "-y" must be passed
+		command+=("${MAINTAINER_AUTO}")
+
+		writeln "Executing cycle: ${cycle}" ${COLOR_WARNING}
+		## executing the command
+		${command[@]}
+		writeln "Cycle execution completed." ${COLOR_WARNING}
+
+		## here we reset the command
+		unset command
+	done
+
+	writeln "System maintenance cycles executed!" ${COLOR_INFO}
+}
+
+## usage of this script
+function info
+{
+	writeln "${STYLE_SUCCESS}System Upgrader script${STYLE_DEFAULT}"
+	writeln "\tfor ${UPGRADER_DISTRO}"
+	_version
+	writeln "\tauthor: hktr92"
+	writeln ""
+	writeln "Usage:"
+	writeln "\t${STYLE_SUCCESS}${UPGRADER_EXECUTABLE} ${STYLE_COMMENT}[option]${STYLE_DEFAULT}"
+	writeln ""
+	writeln "Options:"
+	writeln "\t${STYLE_COMMENT}cycle${STYLE_DEFAULT}\t\tExecutes all provided cycles"
+	writeln "\t${STYLE_COMMENT}help${STYLE_DEFAULT}\t\tShows this message"
+	writeln ""
+	writeln "${STYLE_NOTICE}[open source license notice here]${STYLE_DEFAULT}"
+	writeln ""
+}
+
+## checking for root privileges
+function _check
+{
+	if [ "$(id -u)" -ne "0" ]; then
+		writeln "${STYLE_ERROR}Executing the upgrader script requires root privileges.${STYLE_DEFAULT}"
+		exit 1
+	fi
+}
+
+function main
+{
+	## executing the program
+	local option=$1
+
+	case $option in
+		cycle)		_check
+				execute;;
+		help|*)		info;;
+	esac
+}
+
+main $@
+exit $?
