@@ -100,23 +100,24 @@ function _load_configuration
 	if [[ ! -d ${UPGRADER_ETC} ]]; then
 		writeln "${STYLE_ERROR}Unable to find the ${STYLE_COMMENT}${UPGRADER_ETC}${STYLE_ERROR} directory."
 		writeln "Please follow the installation instruction or create it manually.${STYLE_DEFAULT}"
-		exit ${ERROR_PERMISSION_DENIED}
+		return ${ERROR_PERMISSION_DENIED}
 	fi
 
 	if [[ ! -e ${UPGRADER_ETC}/upgrader.conf ]]; then
 		writeln "${STYLE_ERROR}Unable to get the ${STYLE_COMMENT}upgrader.conf${STYLE_ERROR} file."
 		writeln "Please follow the installation instruction or copy an existent configuration from ${STYLE_COMMENT}${UPGRADER_DIR}/etc${STYLE_ERROR}."
 		writeln "If you can't find the ${STYLE_COMMENT}upgrader.conf${STYLE_ERROR} for your distribution, you can copy the template and edit as you like.${STYLE_DEFAULT}"
-		exit ${ERROR_CONFIG_NOT_FOUND}
+		return ${ERROR_CONFIG_NOT_FOUND}
 	fi
 
 	if [[ ! -r ${UPGRADER_ETC}/upgrader.conf ]]; then
 		writeln "${STYLE_ERROR}Unable to read the ${STYLE_COMMENT}${UPGRADER_ETC}/upgrader.conf${STYLE_ERROR} file because it is unreadable."
 		writeln "Please execute ${STYLE_COMMENT}chmod +r ${UPGRADER_ETC}/upgrader.conf${STYLE_ERROR} in order to bypass this error.${STYLE_DEFAULT}"
-		exit ${ERROR_CONFIG_NOT_READABLE}
+		return ${ERROR_CONFIG_NOT_READABLE}
 	fi
 
 	source ${UPGRADER_ETC}/upgrader.conf
+	return $?
 }
 
 ## the main execution body of this script
@@ -136,7 +137,7 @@ function execute
 
 		## ... so that the magic parameter is passed and added to the builder! :D
 		if [[ "$aut" == "y" ]]; then
-			cmd+=("${MAINTAINER_AUTO}")
+			cmd+=("${aut}")
 		fi
 
 		## The option is added to the builder
@@ -145,7 +146,13 @@ function execute
 		## executing the command from builder...
 		writeln "${STYLE_COMMENT}Executing cycle: ${cycle}${STYLE_DEFAULT}"
 		eval ${cmd[@]}
-		writeln "${STYLE_COMMENT}Cycle execution completed.${STYLE_DEFAULT}"
+		if [[ $? -eq 0 ]]; then
+			writeln "${STYLE_ERROR}Cycle exec failed, ${STYLE_COMMENT}exit code $?${STYLE_DEFAULT}"
+			return $?
+		else
+			writeln "${STYLE_COMMENT}Cycle execution completed.${STYLE_DEFAULT}"
+			return $?
+		fi
 
 		## here we reset the command builder and those two magic variables
 		unset cmd
@@ -153,7 +160,7 @@ function execute
 		unset aut
 	done
 
-	writeln "${STYLE_SUCCESS}System maintenance cycles executed!${STYLE_DEFAULT}"
+	writeln "${STYLE_NOTICE}System maintenance cycles executed!${STYLE_DEFAULT}"
 }
 
 ## usage of this script
@@ -177,9 +184,9 @@ function info
 ## checking for root privileges
 function _check
 {
-	if [ "$(id -u)" -ne "0" ]; then
+	if [[ $(id -u) -ne 0 ]]; then
 		writeln "${STYLE_ERROR}Executing the upgrader script requires root privileges.${STYLE_DEFAULT}"
-		exit ${ERROR_PERMISSION_DENIED}
+		return ${ERROR_PERMISSION_DENIED}
 	fi
 }
 
